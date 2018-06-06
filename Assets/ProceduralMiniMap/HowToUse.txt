@@ -1,0 +1,55 @@
+﻿// Procedural MiniMap unity asset package v1.1 https://www.assetstore.unity3d.com/en/#!/content/82873;
+// Made by Youcef Boukit;
+
+How To Use : (Check the demos scens in the folder Assets/ProceduralMiniMap/Prefabs/Demos to see how it works)
+
+1- Make a new Layer and name it for example "IconLayer",now go to your main camera and diselect "IconLayer" from the Culling Mask.
+(so only the MiniMap Camera can see the icons)
+
+2- Go to Assets/ProceduralMiniMap/Prefabs folder and drag and drop the "MiniMap Prefab" into your scene, next change the Culling Mask of
+the "MiniMap Camera" to "IconLayer" only. (the layer you previously made)
+
+3- In the "MiniMap Prefab" script, set the iconLayerNumber to the layer you made. 
+(you can get its number from the layers section, see helpfull links at the end)
+
+4-Next tweak the variables for how you like :
+
+View Scale : how much the MiniMap Camera can see. (the height of the camera)
+Icon Radius : how much distance for the icons to be considered as far.
+MiniMap Scale : scale of the ui minimap. (1 is the default)
+Rotate Map With Player : - true : will freeze the player_icon rotation, and the camera will rotate instead.
+                         - false : will rotate the player_icon according to the player, and freeze the camera rotation. 
+
+Icons Normal Size : the normal size of the icons in the field of view of the MiniMap Camera.
+Icons Far Size : the Far size of the icons when they are out of the field of view of the MiniMap Camera. (smaller is recomended or same size)
+
+Icons Normal Color : the normal color of the icons in the field of view of the MiniMap Camera.
+Icons Far Color : the Far color of the icons when they are out of the field of view of the MiniMap Camera. (Less alpha is recomended)
+
+Destroy Icon On Game Object Destroy : -true : the icons will be destroyed when the game object it belongs to is destroyed.
+
+Same Size : -true : use the same size for all the icons.
+            -false : use deferent sizes foreach icon. (wich can be changed in the "Game Objects" section)
+Same Color : -true : use the same color for all the icons.
+            -false : use deferent colors foreach icon. (wich can be changed in the "Game Objects" section)
+
+4- Identifying the Game Objects that have icons, first choose the number of the Game Objects in the "Game Objects" size.
+The Game Objects have to have a Tag assigned to them in order for the MiniMap to find them, type your game object tag in the "Tag" field,
+next assign a sprite for that tag in the "Icon Sprite". (that will be the icon for all the objects that holds that tag)
+
+5- Customize the look of your MiniMap:
+In The Hierarchy Canvas/MiniMap Ui, you can change the "Background",the "Outer Texture" and the "Player Icon"
+(All the demo sprites (skins) are in the 'Assets/ProceduralMiniMap/Sprites' folder)
+
+
+
+helpfull links : 
+https://docs.unity3d.com/Manual/Layers.html (how to make new layer)
+https://docs.unity3d.com/Manual/Tags.html (how to use tags)
+
+
+
+
+  /////////////////////////////////////////////////////////
+ //Copyright © youcef boukit 2017 . All rights reserved.//
+/////////////////////////////////////////////////////////
