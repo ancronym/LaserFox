@@ -7,7 +7,9 @@ public class ProjectileController : MonoBehaviour {
     public bool fade;
 
 	public ParticleSystem blast;
-    SpriteRenderer renderer;    
+    SpriteRenderer renderer;
+
+    public GameObject owner;
 
     // used for alpha channel setting:
     float startTime;    
@@ -16,7 +18,7 @@ public class ProjectileController : MonoBehaviour {
 	// Use this for initialization
 	void Start () {
         startTime = Time.timeSinceLevelLoad;       
-        renderer = gameObject.GetComponent<SpriteRenderer>();        
+        renderer = gameObject.GetComponent<SpriteRenderer>();       
 	}
 
     void Update() {
@@ -32,7 +34,7 @@ public class ProjectileController : MonoBehaviour {
     }
 	
 	// Update is called once per frame
-	public void Hit(){
+	public void Hit(float targetHealth, string targetName){
 		Instantiate (blast, gameObject.transform.position, Quaternion.identity);        
 		Destroy (gameObject);
 	}

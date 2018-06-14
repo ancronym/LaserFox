@@ -5,7 +5,7 @@ using UnityEngine;
 public class TeamManager : MonoBehaviour {
 
     public enum TeamSide        {       green,          red    }    
-    public enum TeamMood        {       noContact,      cautious,   offensive,          defensive,      }
+    public enum TeamMood        {       noContact,      defensive,  cautious,           offensive,      }   // translates to danger tolerance often
     public enum TeamState       {       Scouting,       Attacking,  MaintainPerimeter,  Regrouping      }
     public enum MissionState    {       ongoing,        won,        lost    }    
 
@@ -28,17 +28,20 @@ public class TeamManager : MonoBehaviour {
     //public List<GameObject> FormationLeads = new List<GameObject>(20);
     public List<LFAI.Formation> formations = new List<LFAI.Formation>(20);
 
-    public List<LFAI.TMProblem> problems = new List<LFAI.TMProblem>(25);
+    public List<LFAI.TMProblem> newProblems = new List<LFAI.TMProblem>(25);
+    public List<LFAI.TMProblem> problemsBeingSolved = new List<LFAI.TMProblem>(25);
 
     public Vector3 enemyGeneralPosition;
     public List<RadarController.Bogie> bogies = new List<RadarController.Bogie>(40); public float bogieTimeout = 20f;
-    private LFAI.Perimeter perimeter;
+    private LFAI.Perimeter perimeter = new LFAI.Perimeter(new Vector2(0,0),0,false);
     private LFAI.TMSectorImportancePresets sectorImportancePresets;    
     
 
     float updateRepeat;
 
     void Start () {
+        perimeter.upToDate = false;
+
         missionState = MissionState.ongoing;
         
         teamMood = TeamMood.noContact;
@@ -55,7 +58,15 @@ public class TeamManager : MonoBehaviour {
 
         InvokeRepeating("UpdateTeam", 2f, updateRepeat);
         InvokeRepeating("RepeatingChecks", 1f, updateRepeat * 0.81f);
+
         InvokeRepeating("BogieListRemoveOld", 5f, 10f + UnityEngine.Random.Range(0f,5f));
+
+        // Problem solving repeating calls
+        InvokeRepeating("SolveTopProblem", 3f, 0.5f + UnityEngine.Random.Range(-0.1f, 0.1f));
+        InvokeRepeating("SortNewProblemList", 10f, 5f + UnityEngine.Random.Range(-2f, 2f));
+        InvokeRepeating("CheckProblemsBeingSolved", 12f, 10f + UnityEngine.Random.Range(-2f, 2f));
+
+        
     }
 	
 	void Update () {
@@ -67,18 +78,44 @@ public class TeamManager : MonoBehaviour {
     void RepeatingChecks()
     {
         CheckPerimeter();
+
         CheckProgress();
+
         CheckObjective();
+
+        GetAndProcessReports();
     }
 
     void CheckPerimeter()
     {
         if (!perimeter.upToDate) { perimeter.upToDate = ResetPerimeter(); }
 
+        // determine enemy heading range etc i.e disposition
+        List<GameObject> bogieGOs = new List<GameObject>(bogies.Count);
 
-        // determine enemy heading range, 
-        // min distance
-        // adjust perimeter heading
+        for (int i = 0; i < bogies.Count; i++)
+        {
+            bogieGOs[i] = bogies[i].bogieObject;
+        }
+
+        NTools.Slice enemyDisposition = NTools.AnalyseGroupDisposition(
+            perimeter.center,
+            perimeter.headingFloat,
+            bogieGOs
+            );
+
+        // Adjust perimeter heading based on enemy positions center of weight
+
+        // Determine green and nongreen population of sectors
+
+        // Compare population to sector importance, compute importanceMet value
+               // if needed, add problem of type perimeter
+               // if there exists a problem with said sector, but is not relevant anymore, remove problem
+
+
+
+
+
     }
 
     private bool ResetPerimeter()
@@ -132,6 +169,8 @@ public class TeamManager : MonoBehaviour {
 
         int mood = (int)teamMood;
 
+
+        // Adds an importance to each sector based on tabel in LFAI
         switch (teamState)
         {
             case TeamState.Scouting:
@@ -174,8 +213,8 @@ public class TeamManager : MonoBehaviour {
     }
     #endregion
 
-    //------------------------------------------------------------------------------------------------------------------------------------
-    #region TeamState flow
+    //------------------------is this even relevant ...-----------------------------------------------------------------------------------
+    #region TeamState flow // is this even relevant ...
     void UpdateTeam()    {
         switch (teamState)
         {
@@ -212,9 +251,7 @@ public class TeamManager : MonoBehaviour {
                 Regroup();
                 break;
         }
-    }
-
-   
+    }   
 
     void Scout()
     {
@@ -240,31 +277,125 @@ public class TeamManager : MonoBehaviour {
 
     //------------------------------------------------------------------------------------------------------------------------------------
     #region Problem Solving
-    void SolveProblems()
+
+
+    void SortNewProblemList()
     {
-        foreach(LFAI.TMProblem problem in problems)
+        if (newProblems.Count == 0) { return; }
+
+    }
+
+    void CheckProblemsBeingSolved()
+    {
+        if (problemsBeingSolved.Count == 0) { return; }
+
+    }
+
+    void SolveTopProblem()
+    {        
+        if(newProblems.Count == 0) { return; }
+
+        LFAI.TMProblem problem = newProblems[newProblems.Count - 1];
+        float solutionParameter;
+
+        switch (problem.ProbType)
         {
-            switch (problem.ProbType)
-            {
-                case LFAI.TMProbType.flightBingo:
-                    if(capitalShips.Count == 0)
-                    {
+            case LFAI.TMProbType.flightBingo:
+                solutionParameter = SolveFlightBingo(problem);
+                break;
+            case LFAI.TMProbType.flightInDanger:
+                solutionParameter = SolveFlightDanger(problem);
+                break;
+            case LFAI.TMProbType.orderRequest:
+                solutionParameter = SolveOrderRequest(problem);
+                break;
+            case LFAI.TMProbType.perimeter:
+                solutionParameter = SolvePerimeter(problem);
+                break;
 
-                    }
-                    break;
-                case LFAI.TMProbType.orderRequest:
-
-                    break;
-                case LFAI.TMProbType.perimeter:
-
-                    break;
-
-                case LFAI.TMProbType.objective:
-
-                    break;
-            }
-
+            case LFAI.TMProbType.objectiveAttack:
+                solutionParameter = SolveObjectiveAttack(problem);
+                break;
+            case LFAI.TMProbType.objectiveDefence:
+                solutionParameter = SolveObjectiveDefence(problem);
+                break;
         }
+
+
+        problemsBeingSolved.Add(problem);
+        newProblems.RemoveAt(newProblems.Count - 1);
+
+    }
+
+    float SolveFlightBingo(LFAI.TMProblem problem) {
+        float solutionParameter = 0f;
+
+
+
+
+
+
+        return solutionParameter;
+    }
+
+    float SolveFlightDanger(LFAI.TMProblem problem)
+    {
+        float solutionParameter = 0f;
+
+
+
+
+
+
+        return solutionParameter;
+    }
+
+    float SolveOrderRequest(LFAI.TMProblem problem)
+    {
+        float solutionParameter = 0f;
+
+
+
+
+
+
+        return solutionParameter;
+    }
+    
+    float SolvePerimeter(LFAI.TMProblem problem)
+    {
+        float solutionParameter = 0f;
+
+
+
+
+
+
+        return solutionParameter;
+    }
+
+    float SolveObjectiveAttack(LFAI.TMProblem problem)
+    {
+        float solutionParameter = 0f;
+
+
+
+
+
+
+        return solutionParameter;
+    }
+
+    float SolveObjectiveDefence(LFAI.TMProblem problem)
+    {
+        float solutionParameter = 0f;
+
+
+
+
+
+
+        return solutionParameter;
     }
 
 
@@ -330,15 +461,82 @@ public class TeamManager : MonoBehaviour {
     #endregion
 
     //------------------------------------------------------------------------------------------------------------------------------------
-    #region Communication with other objects and other maintenance
-    public void NewFormationLead(GameObject newLead)
+    #region Communication with other objects and other maintenance 
+    public void NewFormationLead(GameObject previousLead, GameObject newLead)
     {
 
     }
 
-    public void FormationReport(LFAI.FormationReport report)
-    {
 
+    // untested, This handles all incoming reports from flights
+    private void GetAndProcessReports()
+    {
+        LFAI.FormationReport report;
+
+        // problem prioritization parameters, computed every time for being up to date
+        float bingoPriority = 0.5f;
+        float dangerTolerance = (float)teamMood / 3;
+
+        foreach(LFAI.Formation formation in formations)
+        {
+            report = formation.Lead.GetComponent<VesselAI>().ReportRequest();
+            float danger = EvaluateDanger(report.formationSize, report.nrHostiles);
+
+            if (report.fuelIsBingo)
+            {
+                if (!CheckNewProblemDupe(LFAI.TMProbType.flightBingo, formation))
+                {
+                    newProblems.Add(new LFAI.TMProblem(
+                        LFAI.TMProbType.flightBingo,
+                        bingoPriority,
+                        90,              // if fuel is again over 90% average for flight, problem is solved
+                        formation
+                        ));
+                }
+            }            
+
+            if (danger > dangerTolerance)
+            {
+                if (!CheckNewProblemDupe(LFAI.TMProbType.flightInDanger, formation))
+                {
+                    newProblems.Add(new LFAI.TMProblem(
+                        LFAI.TMProbType.flightInDanger,
+                        1f - dangerTolerance,       // the higher the threat tolerance, the lower the priority and vice versa
+                        dangerTolerance,            // problem will be solved, if the threat level is lower than tolerance
+                        formation
+                        ));
+                }
+            }
+
+        }
+    }
+
+    // untested, returns true, if problem already exists
+    bool CheckNewProblemDupe(LFAI.TMProbType newType, LFAI.Formation formation)
+    {
+        bool dupe = false;
+
+        foreach(LFAI.TMProblem problem in newProblems)
+        {
+            if(problem.problemFormation == formation && problem.ProbType == newType)
+            {
+                dupe = true;
+            }
+        }
+
+        return dupe;
+    }
+
+    // untested, returns danger between 0 and 1. 0 being no danger, 1 being three times or more baddies as friendlies.
+    private float EvaluateDanger(int formationSize, int nrHostiles)
+    {
+        float danger = 0f;
+
+        danger = ((float)nrHostiles / (float)formationSize) * 0.33f; 
+        // if nrs are even, then danger is 0.33
+        // max danger is 1, when there are three times as many hostiles than friendlies
+       
+        return Mathf.Clamp(danger,0f,1f);
     }
 
     // If bogie is new, add to TMs bogie list, else replace preexisting with new data

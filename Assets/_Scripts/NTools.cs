@@ -86,9 +86,21 @@ public class NTools : MonoBehaviour {
         return heading = 360 - heading;     
     }
 
+    // Disregards the Z component!!!
+    public static float HeadingFromVector(Vector3 vector)
+    {
+        float heading = (float)((Mathf.Atan2(vector.x, vector.y) / Mathf.PI) * 180f);
+        if (heading < 0) { heading += 360f; }
+        return heading = 360 - heading;
+    }
+
     public static Vector3 GetCenterOfObjects3D(List<GameObject> objectList)
     {
         Vector3 center = new Vector3(0,0,0);
+
+        // sanity check
+        if ( objectList.Count == 0) { return center; }
+
         float xSum = 0f, ySum = 0f, zSum = 0f;
 
         for (int i = 0; i < objectList.Count; i++)
@@ -104,6 +116,101 @@ public class NTools : MonoBehaviour {
 
         return center;
     }
+    
+    // used for describing between which bearings something resides
+    public class Slice
+    {
+        public Vector3 sliceOrigin;
+        public float originHeading;
+        public float leftmostBearing;
+        public float rightmostBearing;
+        public float bearingRange;       
+        public float stdDeviation;
+        public Vector3 centerOfMass;
+
+
+        public Slice(
+            Vector3 sliceorigin,
+            float heading,
+            float leftbearing,
+            float rightbearing,
+            float groupspread,
+            float dispersn,
+            Vector3 centerofmass
+            )
+        {
+            sliceOrigin = sliceorigin;
+            originHeading = heading;
+            leftmostBearing = leftbearing;
+            rightmostBearing = rightbearing;
+            bearingRange = groupspread;
+            stdDeviation = dispersn;
+            centerOfMass = centerofmass;
+        }
+    }
+
+    // Used to determine for example in which direction the enemy lies and how widespread they are.
+    // works in CCW mode
+    public static NTools.Slice AnalyseGroupDisposition(Vector3 originPos, float originHeading, List<GameObject> objects)
+    {
+        NTools.Slice slice = new NTools.Slice(originPos, originHeading, 0, 0, 0, 0, new Vector3(0, 0, 0));
+        
+        // sanity check, no objects means return of 000000 !!!
+        if (objects.Count == 0)        {            return slice;        }
+
+        float tempBear, leftBear = 0, rightBear = 0;
+
+        // statistical analysis floats:
+        float meanbearing = 0f, sumDiffFromMean = 0f;
+        float[] bearings = new float[objects.Count];
+
+        slice.centerOfMass = NTools.GetCenterOfObjects3D(objects);
+
+        for (int i = 0; i < objects.Count; i++)
+        {
+            // left bearing is positive, right bearing is negative, clamped between -180 to 180
+
+            tempBear = Mathf.Clamp(
+                NTools.GetBearingFromHeadings(
+                    originHeading, 
+                    NTools.HeadingFromVector(objects[i].transform.position - originPos)
+                ), -180f,180f);
+
+            // storing for later analysis
+            bearings[i] = tempBear;
+
+            // with the first heading set both left and right bearings
+            if(i == 0) { leftBear = tempBear; rightBear = tempBear; }
+            else
+            {
+                if (tempBear > leftBear) { leftBear = tempBear;  }
+                else if ( tempBear < rightBear) { rightBear = tempBear;  }
+            }            
+        }
+
+
+        // disperison computation
+        for (int i = 0; i < bearings.Length; i++)
+        {
+            meanbearing += bearings[i];
+        }
+        meanbearing = meanbearing / bearings.Length;
+
+        for (int i = 0; i < bearings.Length; i++)
+        {
+            sumDiffFromMean += bearings[i] - meanbearing;
+        }
+
+
+        // Filling the slice !!!
+        slice.leftmostBearing = leftBear;
+        slice.rightmostBearing = rightBear;
+        slice.bearingRange = leftBear - rightBear;
+        slice.stdDeviation = Mathf.Sqrt(  Mathf.Pow(sumDiffFromMean , 2f) / (bearings.Length - 1) );
+
+        return slice;
+    }
+    
 
     // works CCW, does it work the other way around? Yes, it does!!!
     public static float GetBearingFromHeadings(float ahead, float headingToObject)

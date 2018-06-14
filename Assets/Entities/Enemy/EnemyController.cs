@@ -59,7 +59,7 @@ public class EnemyController : MonoBehaviour {
 	}
 
 	void Fire(){
-		ship.FireRailgun ();
+		ship.FireWeaponOne ();
 
 		firePause = Random.Range(2f,4f);
 		nextFire = Time.timeSinceLevelLoad + firePause;

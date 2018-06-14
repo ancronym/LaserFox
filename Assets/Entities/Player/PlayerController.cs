@@ -96,13 +96,19 @@ public class PlayerController : MonoBehaviour {
                     );                
 
                 if (Input.GetKey(KeyCode.W)) { ship.ThrustForward(1f); }
-                if (Input.GetKey(KeyCode.A)) { ship.ThrustLeft(1f); }
-                if (Input.GetKey(KeyCode.S)) { ship.ThrustBackward(1f); }
-                if (Input.GetKey(KeyCode.D)) { ship.ThrustRight(1f); }
-                //if (Input.GetKey(KeyCode.T)) {                      fc.GetBoresightTarget(); }
+                else if (Input.GetKeyUp(KeyCode.W)) { ship.ThrustFCancel(); }
 
-                if (Input.GetKeyDown(KeyCode.Mouse0)) { FireWeapon(); }
-                if (Input.GetKeyUp(KeyCode.Mouse0)) { ship.CancelFire(); }
+                if (Input.GetKey(KeyCode.A)) { ship.ThrustLeft(1f); }
+                else if (Input.GetKeyUp(KeyCode.A)) { ship.ThrustLeftCancel(); }
+
+                if (Input.GetKey(KeyCode.S)) { ship.ThrustBackward(1f); }
+                else if (Input.GetKeyUp(KeyCode.S)) { ship.ThrustBCancel(); }
+
+                if (Input.GetKey(KeyCode.D)) { ship.ThrustRight(1f); }
+                else if (Input.GetKeyUp(KeyCode.D)) { ship.ThrustRightCancel(); }
+
+                if (Input.GetKeyDown(KeyCode.Mouse0)) { ship.FireWeapon(true); }
+                if (Input.GetKeyUp(KeyCode.Mouse0)) { ship.FireWeapon(false); }
                 if (Input.GetKeyDown(KeyCode.Mouse1)) { SelectNextWeapon(); }
 
                 if (Input.GetKeyDown(KeyCode.R)) { ship.ToggleRadar(); SetRadarText(); }
@@ -121,48 +127,8 @@ public class PlayerController : MonoBehaviour {
     }
 
     void SelectNextWeapon() {
-        switch (selectedWeapon)
-        {
-            case Weapon.plasma:
-                selectedWeapon = Weapon.railgun;
-                Debug.Log("railgun");
-                weaponText.SetUIWeapontext("railgun");
-                break;
-            case Weapon.missile:
-                Debug.Log("plasma");
-                selectedWeapon = Weapon.plasma;
-                weaponText.SetUIWeapontext("plasma");
-                break;
-            case Weapon.railgun:
-                Debug.Log("missile");
-                weaponText.SetUIWeapontext("missile");
-                selectedWeapon = Weapon.missile;
-                break;
-            default:
-                selectedWeapon = Weapon.plasma;
-                break;
-        }
-
-
-    }
-
-    void FireWeapon() {
-
-        switch (selectedWeapon) {
-            case Weapon.plasma:
-                ship.InvokePlasma();
-                break;
-            case Weapon.railgun:
-                ship.FireRailgun();
-                break;
-
-            case Weapon.missile:
-                ship.FireMissile();
-                break;
-            default:
-
-                break;
-        }
+        string weaponName = ship.SelectNextWeapon();
+        weaponText.SetUIWeapontext(weaponName);
     }
 
     /* 

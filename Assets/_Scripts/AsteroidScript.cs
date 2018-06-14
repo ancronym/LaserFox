@@ -38,7 +38,7 @@ public class AsteroidScript : MonoBehaviour {
             || collision.gameObject.tag == "Scenery")
         {
             if (collision.gameObject.tag == "Projectile"){
-                collision.gameObject.GetComponent<ProjectileController>().Hit();
+                collision.gameObject.GetComponent<ProjectileController>().Hit(1f, "scenery");
                 health -= collision.gameObject.GetComponent<ProjectileController>().projectileDamage;
             }            
             health -= collision.relativeVelocity.magnitude * collision.gameObject.GetComponent<Rigidbody2D>().mass;

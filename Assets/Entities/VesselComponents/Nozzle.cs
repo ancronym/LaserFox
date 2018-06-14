@@ -4,17 +4,36 @@ using UnityEngine;
 
 public class Nozzle : MonoBehaviour {
 
-	ParticleSystem thruster;
-	ParticleSystem.EmitParams emitParams;    
+	GameObject thrustEffect;
+    bool thrustOn;
 
 	void Start(){
-		thruster = gameObject.GetComponent<ParticleSystem> ();        
-		thruster.Emit (emitParams,1);
+		
+        thrustEffect = gameObject.transform.Find("ThrustEffect").gameObject;
+        
+
+        if (thrustEffect) {
+            thrustEffect.SetActive(false);
+            Debug.Log("thrust effect found: " + thrustEffect.name);
+        }
+
+	}
+
+	public void EmitThrust(){      
+
+        if (!thrustOn) {
+            thrustOn = true;
+            thrustEffect.SetActive(true);
+        }
         
 	}
 
-	public void EmitThrust(){
-		thruster.Emit (emitParams,1);
-        
-	}
+    public void StopThrust()
+    {
+        if (thrustOn)
+        {
+            thrustOn = false;
+           thrustEffect.SetActive(false);
+        }
+    }
 }

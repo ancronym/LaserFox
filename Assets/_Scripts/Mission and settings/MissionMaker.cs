@@ -33,6 +33,8 @@ public class MissionMaker : MonoBehaviour {
     public GameObject friendlyFighterPrefab;
     public GameObject enemyFighterPrefab;
 
+
+    // set in the unity editor, green should be 0 and if only one enemy team, red should be 1, obv
     public TeamManager[] teamManagers;
 
     Vector3 greenPos3D, redPos3D;

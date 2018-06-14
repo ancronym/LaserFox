@@ -5,24 +5,31 @@ using UnityEngine;
 public class LFAI : MonoBehaviour {
 
     public enum OrderType { patrol, intercept, moveToDefend, regroup }
-    public enum TMProbType { flightBingo, orderRequest, perimeter, objective }
+    public enum TMProbType { flightBingo, flightInDanger, orderRequest, perimeter, objectiveAttack, objectiveDefence }
 
     public class TMProblem
     {
-        
+        public float timeOfDeclaration;
         public TMProbType ProbType;
-        public int ProbPriority; // The lower the number, the higher the priority
-        public GameObject probFlight; // if the problem is associated with a flight, reference GameObject
-        public bool beingSolved;
+        public float ProbPriority; // The higher the number, the higher the priority
+        public LFAI.Formation problemFormation; // if the problem is associated with a flight, reference GameObject
 
-        public TMProblem(TMProbType probType, int priority)
+        // important value, that should always be checked, else the problem could not be solved.
+        // the value should be set according to the problem nature and used in repeating solution checking 
+        public float solutionParameter; 
+
+        public TMProblem(TMProbType probType, float priority, float solutionValue)
         {
-            ProbType = probType;    ProbPriority = priority;
+            ProbType = probType;    ProbPriority = priority; solutionParameter = solutionValue;
+
+            timeOfDeclaration = Time.timeSinceLevelLoad;
         }
 
-        public TMProblem(TMProbType probType, int priority, GameObject flight)
+        public TMProblem(TMProbType probType, float priority, float solutionValue, LFAI.Formation probFormation)
         {
-            ProbType = probType; ProbPriority = priority;   probFlight = flight;
+            ProbType = probType; ProbPriority = priority;   problemFormation = probFormation; solutionParameter = solutionValue;
+
+            timeOfDeclaration = Time.timeSinceLevelLoad;
         }
     }
 
@@ -105,13 +112,13 @@ public class LFAI : MonoBehaviour {
         public Perimeter(Vector2 centerCoords, float heading, bool isstatic)
         {
             center = centerCoords; headingFloat = heading;
-            isMoving = isstatic;
+            isMoving = !isstatic;
         }
 
         public Perimeter(Vector2 centerCoords, float heading, bool isstatic, GameObject anchor)
         {
             center = centerCoords; headingFloat = heading;
-            isMoving = isstatic;
+            isMoving = !isstatic;
             perimeterAnchor = anchor;
         }
 
@@ -161,6 +168,7 @@ public class LFAI : MonoBehaviour {
         public int greenCount = 0;
         public int redCount = 0;
         public float importance = 0f;
+        public float importanceMet = 0f;
 
         public TMSector(string name, Vector2 headings, Vector2 distances, int layer)
         {

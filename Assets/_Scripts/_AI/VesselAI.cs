@@ -68,7 +68,9 @@ public class VesselAI : MonoBehaviour {
     
 
     // -----------------------------------
-    #region Communication with TeamManager    
+    #region Communication with TeamManager
+        
+    // These will be set by MissionMaker
     public TeamManager.TeamSide teamSide;
     public TeamManager teamManager;
 
@@ -129,6 +131,7 @@ public class VesselAI : MonoBehaviour {
         tcas = gameObject.transform.Find("TCAS").GetComponent<CapsuleCollider2D>();
         TCASLayerMask = LayerMask.GetMask(TCASLayers);
 
+        // For the dynamic wp maintaining correction
         pIDControllerX = new PIDController();
         pIDControllerY = new PIDController();
         pIDControllerX.pGain = 0.15f; pIDControllerX.iGain = 0.15f; pIDControllerX.dGain = 0.15f;
@@ -149,52 +152,68 @@ public class VesselAI : MonoBehaviour {
 
         InvokeRepeating("RepeatingChecks", 0.5f, (repeatingCheckRate + decisionLag + UnityEngine.Random.Range(-0.1f,0.1f)));
 
-        InvokeRepeating("TCASCollisionCheck", 0.4f, decisionLag + UnityEngine.Random.Range(-0.1f, 0.1f));      
-        
+        InvokeRepeating("TCASCollisionCheck", 0.4f, decisionLag + UnityEngine.Random.Range(-0.1f, 0.1f));
+
+        Invoke("LateStart", 1f);
+    }
+
+    void LateStart()
+    {
+        if (statusInFormation == StatusInFormation.lead)
+        {
+           
+        }
     }
 
     // Update is called once per frame
     void Update() {
-        switch (statusInFormation) {
-            case StatusInFormation.lead:
-                ExecuteBehaviour(flightStatus);
-                break;
+        if (ship.shipType == ShipController.ShipType.capital){
+            
+        }
+        else        {
+            switch (statusInFormation)
+            {
+                case StatusInFormation.lead:
+                    ExecuteBehaviour(flightStatus);
+                    break;
 
-            case StatusInFormation.Position2:
-                if (wingmanState == WingmanState.inFormation)
-                {
+                case StatusInFormation.Position2:
+                    if (wingmanState == WingmanState.inFormation)
+                    {
 
-                    //statusText.text = "In Formation";                    
-                    MaintainFormation(statusInFormation.ToString());
-                }
-                else if (wingmanState == WingmanState.followingOrder) {
-                    ExecuteBehaviour(flightStatus);
-                }
-                break;
-            case StatusInFormation.Position3:
-                if (wingmanState == WingmanState.inFormation)
-                {
-                    
-                    //statusText.text = "In Formation";
-                    MaintainFormation(statusInFormation.ToString());
-                }
-                else if (wingmanState == WingmanState.followingOrder)
-                {                    
-                    ExecuteBehaviour(flightStatus);
-                }
-                break;
-            case StatusInFormation.Position4:
-                if (wingmanState == WingmanState.inFormation)
-                {
-                    
-                    //statusText.text = "In Formation";
-                    MaintainFormation(statusInFormation.ToString());
-                }
-                else if (wingmanState == WingmanState.followingOrder)
-                {
-                    ExecuteBehaviour(flightStatus);
-                }
-                break;
+                        //statusText.text = "In Formation";                    
+                        MaintainFormation(statusInFormation.ToString());
+                    }
+                    else if (wingmanState == WingmanState.followingOrder)
+                    {
+                        ExecuteBehaviour(flightStatus);
+                    }
+                    break;
+                case StatusInFormation.Position3:
+                    if (wingmanState == WingmanState.inFormation)
+                    {
+
+                        //statusText.text = "In Formation";
+                        MaintainFormation(statusInFormation.ToString());
+                    }
+                    else if (wingmanState == WingmanState.followingOrder)
+                    {
+                        ExecuteBehaviour(flightStatus);
+                    }
+                    break;
+                case StatusInFormation.Position4:
+                    if (wingmanState == WingmanState.inFormation)
+                    {
+
+                        //statusText.text = "In Formation";
+                        MaintainFormation(statusInFormation.ToString());
+                    }
+                    else if (wingmanState == WingmanState.followingOrder)
+                    {
+                        ExecuteBehaviour(flightStatus);
+                    }
+                    break;
+            }
         }
 
         // statusText.text = NTools.HeadingFromVector(gameObject.GetComponent<Rigidbody2D>().velocity).ToString();
@@ -203,26 +222,48 @@ public class VesselAI : MonoBehaviour {
         UpdateWaypointLine();        
     }
 
+   
+    // no return type, since the method calls another method that will report to teamManager directly
     public LFAI.FormationReport ReportRequest()
     {
-        bool hasWP = (wpList.Count != 0);        
+        // prevent wingmen from going past the formation lead
+        if (statusInFormation != StatusInFormation.lead) {
+            Debug.LogWarning("Wingman tried to access TM!!");
+            return new LFAI.FormationReport(false,0,0,false,0f); // flight size is null, therefore ERROR!!!
+        }
+
+        bool fuelIsBingo = ship.fuelIsBingo;
+        float fuelPercentageAverage = ship.fuelPercentage;
+        bool hasWP = (wpList.Count != 0);
         int flightSize = 1;
-        for(int i = 0; i <=2; i++)
+        for (int i = 0; i <= 2; i++)
         {
             if (wingmen[i])
             {
                 flightSize++;
+
+                fuelPercentageAverage += wingmen[i].GetComponent<ShipController>().fuelPercentage;
+
+                // if the lead was not bingo, but some wingman is, flight will be reported bingo
+                if (wingmen[i].GetComponent<ShipController>().fuelIsBingo)
+                {
+                    fuelIsBingo = true;
+                }
+
             }
+
         }
 
+        fuelPercentageAverage = fuelPercentageAverage / flightSize;
+
         return new LFAI.FormationReport(
-            hasWP,
-            formationBogies.Count,
-            flightSize,
-            ship.fuelIsBingo,
-            ship.fuelPercentage
-            );
-    }
+                hasWP,
+                formationBogies.Count,
+                flightSize,
+                fuelIsBingo,
+                fuelPercentageAverage
+                );
+    }    
 
     public bool OrderReception(LFAI.Order order)
     {
@@ -428,6 +469,8 @@ public class VesselAI : MonoBehaviour {
 
         if (yCorrection < -0.02f && backwardsTCASThrust < 0.01f) { ship.ThrustForward(Mathf.Abs(yCorrection)); }
         else { ship.ThrustForward(forwardTCASThrust); }
+
+        
     }
 
     void Stop() {
@@ -599,8 +642,11 @@ public class VesselAI : MonoBehaviour {
         }
         if (Time.timeSinceLevelLoad - loiterTime > loiterStart)        {
             flightStatus = FlightStatus.patrolling;
+
+            // TODO request order instead
             wpList = RouteAndManeuverPlanner.PlanPatrol(gameObject.transform.position);
             wpIndex = wpList.Count - 1;
+
             desiredSpeed = patrolSpeedMax;
             generalThrust = patrolThrust;
             loiterOngoing = false;
@@ -622,6 +668,7 @@ public class VesselAI : MonoBehaviour {
     void Defend() {
 
     }
+
     #endregion
     // -------------------------------------
 
@@ -1064,7 +1111,8 @@ public class VesselAI : MonoBehaviour {
                     wingmen[i].GetComponent<VesselAI>().teamManager = teamManager;
                     wingmen[i].GetComponent<VesselAI>().formationBogies.Clear();
                     wingmen[i].GetComponent<VesselAI>().formationBogies = formationBogies;
-                    teamManager.NewFormationLead(wingmen[i]);
+
+                    teamManager.NewFormationLead(gameObject, wingmen[i]);
 
                     formation4.transform.parent = wingmen[i].transform;
                     formation4.transform.localPosition = new Vector3(0,0,0);
